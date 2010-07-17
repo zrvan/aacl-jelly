@@ -22,12 +22,11 @@ class Controller_User extends Controller_Layout {
 
    public function action_index()
    {
-      $user = $this->auth->get_user();
-      if ( !$user )
+      if ( !$this->user )
       {
          $this->request->redirect('user/login');
       }
-      Notices::add('info','Hi, '.$user->username);
+      Notices::add('info','Hi, '.$this->user->username);
    }
    public function action_login($u = false)
    {
@@ -35,7 +34,7 @@ class Controller_User extends Controller_Layout {
          $username = $u;
          $password = 'password';
          if ($this->auth->login($username, $password, FALSE)) {
-            Notices::add('success','Logged in successfully as '.$this->auth->get_user()->name);
+            Notices::add('success','Logged in successfully as '.$this->auth->get_user()->username);
             Request::instance()->redirect('user/index');
          } else {
             $errors = array('Login or password incorrect');
@@ -45,6 +44,7 @@ class Controller_User extends Controller_Layout {
    public function action_logout()
    {
       $this->auth->logout();
+      Notices::add('success','Logged out');
       Request::instance()->redirect('user/login');
    }
 
