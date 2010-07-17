@@ -17,7 +17,7 @@ class Controller_User extends Controller_Layout {
 
 	public function before()
 	{
-		parent::before();
+		parent::before(); 
 	}
 
    public function action_index()
