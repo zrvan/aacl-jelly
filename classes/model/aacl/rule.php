@@ -6,16 +6,16 @@
  * @see			http://github.com/banks/aacl
  * @package		AACL
  * @uses		Auth
- * @uses		Sprig
+ * @uses		Jelly
  * @author		Paul Banks
  * @copyright	(c) Paul Banks 2010
  * @license		MIT
  */
-class Model_AACL_Rule extends Sprig_AACL
+class Model_AACL_Rule extends Jelly_AACL
 {
-	protected function _init()
+	public static function initialize(Jelly_Meta $meta)
 	{
-		$this->_fields += array(
+		/*$this->_fields += array(
 			'id' 		=> new Sprig_Field_Auto,
 			'role' 	=> new Sprig_Field_BelongsTo(array(
 				'model'			=> 'role',
@@ -32,7 +32,41 @@ class Model_AACL_Rule extends Sprig_AACL
 				'max_length' 	=> 25,
 				'null'			=> TRUE,
 			)),
-		);
+		);*/
+      $meta->table('rules')
+           ->fields(array(
+              'id' => new Field_Primary(array(
+                 'editable' => false,
+              )),
+              'role' => new Field_BelongsTo(array(
+                 'label' => 'Role',
+                 'column' => 'role_id',
+                 'foreign' => 'role.id'
+              )),
+              'resource' => new Field_String(array(
+                 'label' => 'Controlled resource',
+                 'rules' => array(
+                     Formo::rule('not_empty'),
+                     //'max_length' 	=> 45,
+                 )
+              )),
+              'action' => new Field_String(array(
+                 'label' => 'Controlled action',
+                 'rules' => array(
+                     //'max_length' 	=> 25,
+                     //'null'			=> TRUE,
+                 ),
+                 'default' => NULL,
+              )),
+              'condition' => new Field_String(array(
+                 'label' => 'Access condition',
+                 'rules' => array(
+                     //'max_length' 	=> 25,
+                     //'null'			=> TRUE,
+                 ),
+                 'default' => NULL,
+              )),
+            ));
 	}
 	
 	/**
@@ -114,9 +148,11 @@ class Model_AACL_Rule extends Sprig_AACL
 	 */
 	public function create()
 	{
+      $meta = $this->meta();
+      $fields = $meta->fields();
 		// Delete all more specifc rules for this role
-		$delete = DB::delete($this->_table)
-			->where($this->_fields['role']->column, '=', $this->_changed['role']);
+		$delete = Jelly::delete($this)
+			->where( $fields['role']->column, '=', $this->_changed['role']);
 		
 		// If resource is '*' we don't need any more rules - we just delete every rule for this role
 		
@@ -124,28 +160,28 @@ class Model_AACL_Rule extends Sprig_AACL
 		{
 			// Need to restrict to roles with equal or more specific resource id
 			$delete->where_open()
-				->where($this->_fields['resource']->column, '=', $this->resource)
-				->or_where($this->_fields['resource']->column, 'LIKE', $this->resource.'.%')
+				->where($fields['resource']->column, '=', $this->resource)
+				->or_where($fields['resource']->column, 'LIKE', $this->resource.'.%')
 				->where_close();
 		}
 		
 		if ( ! is_null($this->action))
 		{
 			// If this rule has an action, only remove other rules with the same action
-			$delete->where($this->_fields['action']->column, '=', $this->action);
+			$delete->where($fields['action']->column, '=', $this->action);
 		}
 		
 		if ( ! is_null($this->condition))
 		{
 			// If this rule has a condition, only remove other rules with the same condition
-			$delete->where($this->_fields['condition']->column, '=', $this->condition);
+			$delete->where($fields['condition']->column, '=', $this->condition);
 		}		
 		
 		// Do the delete
-		$delete->execute($this->_db);
+		$delete->execute();
 		
 		// Create new rule
-		parent::create();
+		parent::save();
 	}
 	
 	/**

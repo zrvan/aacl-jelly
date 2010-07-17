@@ -6,7 +6,7 @@
  * @see			http://github.com/banks/aacl
  * @package		AACL
  * @uses		Auth
- * @uses		Sprig
+ * @uses		Jelly
  * @author		Paul Banks
  * @copyright	(c) Paul Banks 2010
  * @license		MIT
@@ -34,7 +34,7 @@ class AACL
 		// Normalise $role
 		if ( ! $role instanceof Model_Role)
 		{
-			$role = Sprig::factory('role', array('name' => $role))->load();
+			$role = Jelly::select('role')->where('name', '=', $role)->limit(1)->execute();
 		}
 		
 		// Check role exists
@@ -45,7 +45,7 @@ class AACL
 		}
 		
 		// Create rule
-		Sprig::factory('aacl_rule', array(
+		Jelly::factory('aacl_rule', array(
 			'role' => $role->id,
 			'resource' => $resource,
 			'action' => $action,
@@ -67,7 +67,7 @@ class AACL
 		// Normalise $role
 		if ( ! $role instanceof Model_Role)
 		{
-			$role = Sprig::factory('role', array('name' => $role))->load();
+			$role = Jelly::factory('role', array('name' => $role))->load();
 		}
 		
 		// Check role exists
@@ -77,7 +77,7 @@ class AACL
 			return;
 		}
 		
-		$model = Sprig::factory('aacl_rule', array(
+		$model = Jelly::factory('aacl_rule', array(
 			'role' => $role->id,
 		));
 		
@@ -147,9 +147,9 @@ class AACL
 		if ( ! isset(self::$_rules) OR $force_load)
 		{
 			// Get rule model instance
-			$model = Sprig::factory('aacl_rule');
+			$model = Jelly::factory('aacl_rule');
 		
-			self::$_rules = Sprig::factory('aacl_rule')
+			self::$_rules = Jelly::factory('aacl_rule')
 							->load(DB::select()
 										// Select all rules that apply to any of the user's roles
 										->where($model->field('role')->column, 'IN', $user->roles->as_array(NULL, 'id'))
@@ -231,7 +231,7 @@ class AACL
 			// Remove core module paths form search
 			$loaded_modules = Kohana::modules();
 			
-			$exclude_modules = array('database', 'orm', 'sprig', 'auth', 'sprig-auth', 
+			$exclude_modules = array('database', 'orm', 'jelly', 'auth', 'jelly-auth',
 				'userguide', 'image', 'codebench', 'unittest', 'pagination');
 				
 			$paths = Kohana::include_paths();
