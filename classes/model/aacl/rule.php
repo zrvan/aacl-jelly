@@ -99,7 +99,7 @@ class Model_AACL_Rule extends Jelly_AACL
 			// This rule has a specific action and it doesn't match the specific one passed
 			return FALSE;
 		}
-		
+
 		$matches = FALSE;
 		
 		// Make sure rule resource is the same as requested resource, or is an ancestor
@@ -115,7 +115,7 @@ class Model_AACL_Rule extends Jelly_AACL
 			{
 				// Find last occurence of '.' separator
 				$last_dot_pos = strrpos($resource_id, '.');
-				
+
 				if ($last_dot_pos !== FALSE)
 				{
 					// This rule might match more generally, try the next level of specificity
@@ -136,7 +136,7 @@ class Model_AACL_Rule extends Jelly_AACL
 			// Condition wasn't met (or doesn't exist)
 			return FALSE;
 		}
-		
+
 		// All looks rosy!
 		return TRUE;
 	}

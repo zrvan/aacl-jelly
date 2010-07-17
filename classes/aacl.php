@@ -149,14 +149,20 @@ class AACL
 			// Get rule model instance
 			$model = Jelly::factory('aacl_rule');
 		
-			self::$_rules = Jelly::factory('aacl_rule')
-							->load(DB::select()
+/*			self::$_rules = Jelly::factory('aacl_rule')
+							->load(DB::select('role')->from($tables)
 										// Select all rules that apply to any of the user's roles
-										->where($model->field('role')->column, 'IN', $user->roles->as_array(NULL, 'id'))
+										->where('role', 'IN', $user->roles->as_array(NULL, 'id'))
 										// Order by resource length as this will mostly mean that
 										// Less specific rules come first making the checking quicker
-										->order_by('LENGTH("'.$model->field('resource')->column.'")', 'ASC')
-							, FALSE)->as_array();
+										->order_by('LENGTH("resource")', 'ASC')->execute()->as_array
+							, FALSE)->as_array();*/
+
+         self::$_rules = Jelly::select('aacl_rule')
+                     ->where('role','IN', $user->roles->as_array(NULL, 'id'))
+                     ->order_by('LENGTH("resource")', 'ASC')
+                     ->execute();
+
 		}
 
 		return self::$_rules;
