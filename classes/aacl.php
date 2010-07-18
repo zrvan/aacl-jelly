@@ -23,82 +23,124 @@ class AACL
 	/**
 	 * Grant access to $role for resource
 	 * 
-	 * @param	mixed	string role name or Model_Role object
-	 * @param	string	resource identifier
+	 * @param	mixed	string role name or Model_Role object [optional]
+	 * @param	string	resource identifier [optional]
 	 * @param	string	action [optional]
 	 * @param	string	condition [optional]
 	 * @return 	void
 	 */
-	public static function grant($role, $resource, $action = NULL, $condition = NULL)
+	public static function grant($role = NULL, $resource = NULL, $action = NULL, $condition = NULL)
 	{
-		// Normalise $role
-		if ( ! $role instanceof Model_Role)
-		{
-			$role = Jelly::select('role')->where('name', '=', $role)->limit(1)->execute();
-		}
-		
-		// Check role exists
-		if ( ! $role->loaded())
-		{
-			throw new AACL_Exception('Unknown role :role passed to AACL::grant()',
-				array(':role' => $role->name));
-		}
-		
-		// Create rule
-		Jelly::factory('aacl_rule', array(
-			'role' => $role->id,
-			'resource' => $resource,
-			'action' => $action,
-			'condition' => $condition,
-		))->create();
+      // if $role is null — we grant this to everyone
+      if( is_null($role) )
+      {
+         // Create rule
+         Jelly::factory('aacl_rule', array(
+            'role' => null,
+            'resource' => $resource,
+            'action' => $action,
+            'condition' => $condition,
+         ))->create();
+      }
+      else
+      {
+         // Normalise $role
+         if ( ! $role instanceof Model_Role)
+         {
+            $role = Jelly::select('role')->where('name', '=', $role)->limit(1)->execute();
+         }
+
+         // Check role exists
+         if ( ! $role->loaded())
+         {
+            throw new AACL_Exception('Unknown role :role passed to AACL::grant()',
+               array(':role' => $role->name));
+         }
+
+         // Create rule
+         Jelly::factory('aacl_rule', array(
+            'role' => $role->id,
+            'resource' => $resource,
+            'action' => $action,
+            'condition' => $condition,
+         ))->create();
+      }
 	}
 	
 	/**
 	 * Revoke access to $role for resource
 	 * 
-	 * @param	mixed	string role name or Model_Role object
-	 * @param	string	resource identifier
+	 * @param	mixed	string role name or Model_Role object [optional]
+	 * @param	string	resource identifier [optional]
 	 * @param	string	action [optional]
 	 * @param	string	condition [optional]
 	 * @return 	void
 	 */
-	public static function revoke($role, $resource, $action = NULL, $condition = NULL)
+	public static function revoke($role = NULL, $resource = NULL, $action = NULL, $condition = NULL)
 	{
-		// Normalise $role
-		if ( ! $role instanceof Model_Role)
-		{
-			$role = Jelly::factory('role', array('name' => $role))->load();
-		}
-		
-		// Check role exists
-		if ( ! $role->loaded())
-		{
-			// Just return without deleting anything
-			return;
-		}
-		
-		$model = Jelly::factory('aacl_rule', array(
-			'role' => $role->id,
-		));
-		
-		if ($resource !== '*')
-		{
-			// Add normal reources, resource '*' will delete all rules for this role
-			$model->resource = $resource;
-		}
-		
-		if ($resource !== '*' AND ! is_null($action))
-		{
-			$model->action = $action;
-		}
-		
-		if ($resource !== '*' AND ! is_null($condition))
-		{
-			$model->condition = $condition;
-		}
-		
-		// Delete rule
-		$model->delete();
+      if( is_null($role) )
+      {
+         $model = Jelly::factory('aacl_rule', array(
+            'role' => NULL,
+         ));
+
+         if ($resource !== NULL )
+         {
+            // Add normal reources, resource NULL will delete all rules for this role
+            $model->resource = $resource;
+         }
+
+         if ($resource !== NULL AND ! is_null($action))
+         {
+            $model->action = $action;
+         }
+
+         if ($resource !== NULL AND ! is_null($condition))
+         {
+            $model->condition = $condition;
+         }
+
+         // Delete rule
+         $model->delete();
+      }
+      else
+      {
+         // Normalise $role
+         if ( ! $role instanceof Model_Role)
+         {
+            $role = Jelly::factory('role', array('name' => $role))->load();
+         }
+
+         // Check role exists
+         if ( ! $role->loaded())
+         {
+            // Just return without deleting anything
+            return;
+         }
+
+         $model = Jelly::factory('aacl_rule', array(
+            'role' => $role->id,
+         ));
+
+         if ($resource !== NULL)
+         {
+            // Add normal reources, resource '*' will delete all rules for this role
+            $model->resource = $resource;
+         }
+
+         if ($resource !== NULL AND ! is_null($action))
+         {
+            $model->action = $action;
+         }
+
+         if ($resource !== NULL AND ! is_null($condition))
+         {
+            $model->condition = $condition;
+         }
+
+         // Delete rule
+         $model->delete();
+      }
 	}
 	
 	/**
@@ -130,7 +172,19 @@ class AACL
 		}
 		else
 		{
-			// User is not logged in and the need to be
+         // User isn't logged in, try to apply some global rules
+         $rules = self::_get_rules($user);
+
+			foreach ($rules as $rule)
+			{
+				if ($rule->allows_access_to($resource, $action))
+				{
+					// Access granted, just return
+					return;
+				}
+			}
+
+			// User is not logged in and no global rules matched
 			throw new AACL_Exception_401;
 		}
 	}
@@ -142,30 +196,32 @@ class AACL
 	 * @param 	bool		[optional] Force reload from DB default FALSE
 	 * @return 	array
 	 */
-	protected static function _get_rules(Model_User $user, $force_load = FALSE)
+	protected static function _get_rules( $user = false, $force_load = FALSE)
 	{
-		if ( ! isset(self::$_rules) OR $force_load)
-		{
-			// Get rule model instance
-			$model = Jelly::factory('aacl_rule');
-		
-/*			self::$_rules = Jelly::factory('aacl_rule')
-							->load(DB::select('role')->from($tables)
-										// Select all rules that apply to any of the user's roles
-										->where('role', 'IN', $user->roles->as_array(NULL, 'id'))
-										// Order by resource length as this will mostly mean that
-										// Less specific rules come first making the checking quicker
-										->order_by('LENGTH("resource")', 'ASC')->execute()->as_array
-							, FALSE)->as_array();*/
+      if( $user instanceof Model_User)
+      {
+         if ( ! isset(self::$_rules) OR $force_load)
+         {
+            self::$_rules = Jelly::select('aacl_rule')
+                        ->where('role','IN', $user->roles->as_array(NULL, 'id'))
+                        ->order_by('LENGTH("resource")', 'ASC')
+                        ->execute();
+         }
 
-         self::$_rules = Jelly::select('aacl_rule')
-                     ->where('role','IN', $user->roles->as_array(NULL, 'id'))
-                     ->order_by('LENGTH("resource")', 'ASC')
-                     ->execute();
+         return self::$_rules;
+      }
+      else
+      {
+         if ( ! isset(self::$_rules) OR $force_load)
+         {
+            self::$_rules = Jelly::select('aacl_rule')
+                        ->where('role','=', null)
+                        ->order_by('LENGTH("resource")', 'ASC')
+                        ->execute();
+         }
 
-		}
-
-		return self::$_rules;
+         return self::$_rules;
+      }
 	}
 	
 	protected static $_resources;

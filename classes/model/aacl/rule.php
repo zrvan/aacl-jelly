@@ -15,25 +15,7 @@ class Model_AACL_Rule extends Jelly_AACL
 {
 	public static function initialize(Jelly_Meta $meta)
 	{
-		/*$this->_fields += array(
-			'id' 		=> new Sprig_Field_Auto,
-			'role' 	=> new Sprig_Field_BelongsTo(array(
-				'model'			=> 'role',
-			)),
-			'resource' 	=> new Sprig_Field_Char(array(
-				'max_length' 	=> 45,
-				'null'			=> FALSE,
-			)),
-			'action'	=> new Sprig_Field_Char(array(
-				'max_length' 	=> 25,
-				'null'			=> TRUE,
-			)),
-			'condition'	=> new Sprig_Field_Char(array(
-				'max_length' 	=> 25,
-				'null'			=> TRUE,
-			)),
-		);*/
-      $meta->table('rules')
+		$meta->table('rules')
            ->fields(array(
               'id' => new Field_Primary(array(
                  'editable' => false,
@@ -47,22 +29,22 @@ class Model_AACL_Rule extends Jelly_AACL
                  'label' => 'Controlled resource',
                  'rules' => array(
                      Formo::rule('not_empty'),
-                     //'max_length' 	=> 45,
+                     'max_length' 	=> 45,
                  )
               )),
               'action' => new Field_String(array(
                  'label' => 'Controlled action',
                  'rules' => array(
-                     //'max_length' 	=> 25,
-                     //'null'			=> TRUE,
+                     'max_length' 	=> 25,
+                     'null'			=> TRUE,
                  ),
                  'default' => NULL,
               )),
               'condition' => new Field_String(array(
                  'label' => 'Access condition',
                  'rules' => array(
-                     //'max_length' 	=> 25,
-                     //'null'			=> TRUE,
+                     'max_length' 	=> 25,
+                     'null'			=> TRUE,
                  ),
                  'default' => NULL,
               )),
@@ -78,7 +60,7 @@ class Model_AACL_Rule extends Jelly_AACL
 	 */
 	public function allows_access_to(AACL_Resource $resource, $action = NULL)
 	{
-		if ($this->resource === '*')
+		if (is_null($this->resource))
 		{
 			// No point checking anything else!
 			return TRUE;
@@ -156,7 +138,7 @@ class Model_AACL_Rule extends Jelly_AACL
 		
 		// If resource is '*' we don't need any more rules - we just delete every rule for this role
 		
-		if ($this->resource !== '*')
+		if ( ! is_null($this->resource) )
 		{
 			// Need to restrict to roles with equal or more specific resource id
 			$delete->where_open()
