@@ -86,7 +86,7 @@ class AACL
 
          if ($resource !== NULL )
          {
-            // Add normal reources, resource NULL will delete all rules for this role
+            // Add normal reources, resource NULL will delete all rules
             $model->resource = $resource;
          }
 
@@ -142,10 +142,10 @@ class AACL
          $model->delete();
       }
 	}
-	
-	/**
+
+   /**
 	 * Checks user has permission to access resource
-	 * 
+	 *
 	 * @param	AACL_Resource	AACL_Resource object being requested
 	 * @param	string			action identifier [optional]
 	 * @throw	AACL_Exception	To identify permission or authentication failure
@@ -157,7 +157,7 @@ class AACL
 		{
 			// User is logged in, check rules
 			$rules = self::_get_rules($user);
-			
+
 			foreach ($rules as $rule)
 			{
 				if ($rule->allows_access_to($resource, $action))
@@ -166,7 +166,7 @@ class AACL
 					return;
 				}
 			}
-			
+
 			// No access rule matched
 			throw new AACL_Exception_403;
 		}
@@ -198,7 +198,7 @@ class AACL
 	 */
 	protected static function _get_rules( $user = false, $force_load = FALSE)
 	{
-      if( $user instanceof Model_User)
+      if( $user instanceof Model_User && !is_null($user->id()))
       {
          if ( ! isset(self::$_rules) OR $force_load)
          {
@@ -239,12 +239,13 @@ class AACL
 		{
 			// Find all classes in the application and modules
 			$classes = self::_list_classes();
-			
+
+      
 			// Loop throuch classes and see if they implement AACL_Resource
 			foreach ($classes as $i => $class_name)
 			{
 				$class = new ReflectionClass($class_name);
-				
+
 				if ($class->implementsInterface('AACL_Resource'))
 				{
 					// Ignore interfaces
@@ -262,7 +263,7 @@ class AACL
 					// Create an instance of the class
 					$resource = $class->getMethod('acl_instance')->invoke($class_name, $class_name);
 					
-					// Get resource info
+               // Get resource info
 					self::$_resources[$resource->acl_id()] = array(
 						'actions' 		=> $resource->acl_actions(),
 						'conditions'	=> $resource->acl_conditions(),
@@ -297,19 +298,20 @@ class AACL
 				'userguide', 'image', 'codebench', 'unittest', 'pagination');
 				
 			$paths = Kohana::include_paths();
-			
-			// Remove known core module paths
+         
+         // Remove known core module paths
 			foreach ($loaded_modules as $module => $path)
 			{
-				if (in_array($module, $exclude_modules))
-				{					
-					unset($paths[array_search($path.DIRECTORY_SEPARATOR, $paths)]);
+            if (in_array($module, $exclude_modules))
+				{
+               // Doesn't works properly — double slash on the end
+               //	unset($paths[array_search($path.DIRECTORY_SEPARATOR, $paths)]);
+               unset($paths[array_search($path, $paths)]);
 				}
 			}	
-			
+
 			// Remove system path
 			unset($paths[array_search(SYSPATH, $paths)]);
-			
 			$files = Kohana::list_files('classes', $paths);
 		}
 		
@@ -336,6 +338,58 @@ class AACL
 		
 		return $classes;
 	}
+   
+   protected static $_access_map;
+
+   public static function granted($check_role = NULL, $check_resource = NULL, $check_action = NULL)
+   {
+      if( !isset(self::$_access_map))
+      {
+         $map = array();
+         $roles = Jelly::select('role')->execute();
+         $resources = self::list_resources();
+         $rules = Jelly::select('aacl_rule')
+                                 ->execute();
+
+         
+         // Create map
+         foreach( $roles as $role )
+         {
+            $map[$role->name] = array();
+            foreach( $resources as $resource => $sub)
+            {
+               $map[$role->name][$resource] = array();
+               foreach( $sub['actions'] as $action )
+               {
+                  $map[$role->name][$resource][$action]=false;
+                  
+                  foreach($rules as $rule)
+                  {
+                     if( $rule->allows_access_to($resource,$action)
+                      && ($rule->role->id == $role->id || is_null($rule->role->id) ) )
+                     {
+                        $map[$role->name][$resource][$action] = true;
+                     }
+                  }
+               }
+            }
+         }
+         
+         self::$_access_map = $map;
+      }
+
+      if( is_null($check_action) )
+      {
+         $ret = true;
+         foreach( self::$_access_map[$check_role][$check_resource] as $each )
+            if(!$each)
+               $ret = false;
+
+         return $ret;
+      }
+      else
+         return self::$_access_map[$check_role][$check_resource][$check_action];
+   }
 	
 	/**
 	 * Force static access

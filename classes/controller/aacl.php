@@ -87,13 +87,13 @@ abstract class Controller_AACL extends Controller_Template implements AACL_Resou
 	{
 		// Return controller instance populated with manipulated request details
 		$instance = new $class_name(Request::instance());
-		
+		// Remove "controller_" part from name
 		$controller_name = strtolower(substr($class_name, 11));
 		
 		if ($controller_name !== Request::instance()->controller)
 		{
 			// Manually override controller name and action
-			$instance->request->controller = strtolower(substr(get_class($this), 11));
+			$instance->request->controller = strtolower($controller_name);
 			
 			$instance->request->action = NULL;
 		}

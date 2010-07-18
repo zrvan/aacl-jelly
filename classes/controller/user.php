@@ -28,16 +28,33 @@ class Controller_User extends Controller_Layout {
       }
       Notices::add('info','Hi, '.$this->user->username);
    }
-   public function action_login($u = false)
+   public function action_force_login($u = false)
    {
       if ( $u ) {
          $username = $u;
-         $password = 'password';
-         if ($this->auth->login($username, $password, FALSE)) {
-            Notices::add('success','Logged in successfully as '.$this->auth->get_user()->username);
+         $this->auth->force_login($username);
+         if ( $this->auth->get_user()) {
+            Notices::add('success','Forced in successfully as '.$this->auth->get_user()->username);
             Request::instance()->redirect('user/index');
          } else {
-            $errors = array('Login or password incorrect');
+            $errors = array('Not forced in.');
+         }
+      }
+   }
+   public function action_login()
+   {
+      $user = Jelly::factory('user');
+
+      $this->template->content = $user->subform(array('username', 'password'))
+              ->add('submit', 'submit');
+
+      if ($user->subform->load()->validate()) {
+         if($this->auth->login($user->username, $user->password)) {
+            $this->user = $this->auth->get_user();
+            Notices::add('success','Logged in successfully as '.$this->user->username);
+            $this->request->redirect('user/index');
+         } else {
+            Notices::add('error','Login or password incorrect');
          }
       }
    }
@@ -46,6 +63,23 @@ class Controller_User extends Controller_Layout {
       $this->auth->logout();
       Notices::add('success','Logged out');
       Request::instance()->redirect('user/login');
+   }
+   /*
+    * Setting rules
+    */
+   public function action_control()
+   {
+      $this->template->content = View::factory('user/control', array(
+                                       'resources'=>AACL::list_resources(),
+                                       'roles'=> Jelly::select('role')->execute(),
+                                       ));
+   }
+   /*
+    * Managing users
+    */
+   public function action_users()
+   {
+
    }
 
 	public function after()

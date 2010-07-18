@@ -41,7 +41,7 @@ abstract class Jelly_AACL extends Jelly_Model implements AACL_Resource
 		}
 		
 		// Model namespace, model name, pk
-		return 'm:'.strtolower($this->model_name($this)).$id;
+		return 'm:'.strtolower($this->meta()->model()).$id;
 	}
 	
 	/**

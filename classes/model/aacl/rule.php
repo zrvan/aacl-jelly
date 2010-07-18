@@ -28,7 +28,6 @@ class Model_AACL_Rule extends Jelly_AACL
               'resource' => new Field_String(array(
                  'label' => 'Controlled resource',
                  'rules' => array(
-                     Formo::rule('not_empty'),
                      'max_length' 	=> 45,
                  )
               )),
@@ -58,69 +57,139 @@ class Model_AACL_Rule extends Jelly_AACL
 	 * @param string        action requested [optional]
 	 * @return 
 	 */
-	public function allows_access_to(AACL_Resource $resource, $action = NULL)
+	public function allows_access_to($resource, $action = NULL)
 	{
-		if (is_null($this->resource))
-		{
-			// No point checking anything else!
-			return TRUE;
-		}
-		
-		if (is_null($action))
-		{
-			// Check to see if Resource whats to define it's own action
-			$action = $resource->acl_actions(TRUE);
-		}
-		
-		// Get string id
-		$resource_id = $resource->acl_id();
-		
-		// Make sure action matches
-		if ( ! is_null($action) AND ! is_null($this->action) AND $action !== $this->action)
-		{
-			// This rule has a specific action and it doesn't match the specific one passed
-			return FALSE;
-		}
+      if( $resource instanceof AACL_Resource)
+      {
+         // Not changed banks method
+         if (is_null($this->resource))
+         {
+            // No point checking anything else!
+            return TRUE;
+         }
 
-		$matches = FALSE;
-		
-		// Make sure rule resource is the same as requested resource, or is an ancestor
-		while( ! $matches)
-		{
-			// Attempt match
-			if ($this->resource === $resource_id)
-			{
-				// Stop loop
-				$matches = TRUE;
-			}
-			else
-			{
-				// Find last occurence of '.' separator
-				$last_dot_pos = strrpos($resource_id, '.');
+         if (is_null($action))
+         {
+            // Check to see if Resource whats to define it's own action
+            $action = $resource->acl_actions(TRUE);
+         }
 
-				if ($last_dot_pos !== FALSE)
-				{
-					// This rule might match more generally, try the next level of specificity
-					$resource_id = substr($resource_id, 0, $last_dot_pos);
-				}
-				else
-				{
-					// We can't make this any more general as there are no more dots
-					// And we haven't managed to match the resource requested
-					return FALSE;
-				}
-			}
-		}
-		
-		// Now we know this rule matches the resource, check any match condition
-		if ( ! is_null($this->condition) AND ! $resource->acl_conditions(Auth::instance()->get_user(), $this->condition))
-		{
-			// Condition wasn't met (or doesn't exist)
-			return FALSE;
-		}
+         // Get string id
+         $resource_id = $resource->acl_id();
 
-		// All looks rosy!
-		return TRUE;
+         // Make sure action matches
+         if ( ! is_null($action) AND ! is_null($this->action) AND $action !== $this->action)
+         {
+            // This rule has a specific action and it doesn't match the specific one passed
+            return FALSE;
+         }
+
+         $matches = FALSE;
+
+         // Make sure rule resource is the same as requested resource, or is an ancestor
+         while( ! $matches)
+         {
+            // Attempt match
+            if ($this->resource === $resource_id)
+            {
+               // Stop loop
+               $matches = TRUE;
+            }
+            else
+            {
+               // Find last occurence of '.' separator
+               $last_dot_pos = strrpos($resource_id, '.');
+
+               if ($last_dot_pos !== FALSE)
+               {
+                  // This rule might match more generally, try the next level of specificity
+                  $resource_id = substr($resource_id, 0, $last_dot_pos);
+               }
+               else
+               {
+                  // We can't make this any more general as there are no more dots
+                  // And we haven't managed to match the resource requested
+                  return FALSE;
+               }
+            }
+         }
+
+         // Now we know this rule matches the resource, check any match condition
+         if ( ! is_null($this->condition) AND ! $resource->acl_conditions(Auth::instance()->get_user(), $this->condition))
+         {
+            // Condition wasn't met (or doesn't exist)
+            return FALSE;
+         }
+
+         // All looks rosy!
+         return TRUE;
+      }
+      else
+      {
+         // $resource should be valid resource id
+
+         if (is_null($this->resource))
+         {
+            // No point checking anything else!
+            return TRUE;
+         }
+
+         /*if (is_null($action))
+         {
+            // Check to see if Resource whats to define it's own action
+            $action = $resource->acl_actions(TRUE);
+         }*/
+
+         // Get string id
+         $resource_id = $resource;
+
+         // Make sure action matches
+         if ( ! is_null($action) AND ! is_null($this->action) AND $action !== $this->action)
+         {
+            // This rule has a specific action and it doesn't match the specific one passed
+            return FALSE;
+         }
+
+         $matches = FALSE;
+
+         // Make sure rule resource is the same as requested resource, or is an ancestor
+         while( ! $matches)
+         {
+            // Attempt match
+            if ($this->resource === $resource_id)
+            {
+               // Stop loop
+               $matches = TRUE;
+            }
+            else
+            {
+               // Find last occurence of '.' separator
+               $last_dot_pos = strrpos($resource_id, '.');
+
+               if ($last_dot_pos !== FALSE)
+               {
+                  // This rule might match more generally, try the next level of specificity
+                  $resource_id = substr($resource_id, 0, $last_dot_pos);
+               }
+               else
+               {
+                  // We can't make this any more general as there are no more dots
+                  // And we haven't managed to match the resource requested
+                  return FALSE;
+               }
+            }
+         }
+
+         // Now we know this rule matches the resource, check any match condition
+         if ( ! is_null($this->condition) AND ! $resource->acl_conditions(Auth::instance()->get_user(), $this->condition))
+         {
+            // Condition wasn't met (or doesn't exist)
+            return FALSE;
+         }
+
+         // All looks rosy!
+         return TRUE;
+      }
 	}
 	
 	/**
