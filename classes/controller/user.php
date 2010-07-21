@@ -54,7 +54,7 @@ class Controller_User extends Controller_Layout {
             Notices::add('success','Logged in successfully as '.$this->user->username);
             $this->request->redirect('user/index');
          } else {
-            Notices::add('error','Login or password incorrect');
+            Notices::add('error','Login or password incorrect ');
          }
       }
    }
@@ -66,9 +66,25 @@ class Controller_User extends Controller_Layout {
    }
    /*
     * Setting rules
+    *
+    * This should be totally rewritten
     */
    public function action_control()
    {
+      if( isset( $_POST['grant'] ) )
+      {
+         Jelly::delete('aacl_rule')->execute();
+         foreach($_POST['grant'] as $rule => $value)
+         {
+            $parse = explode('/',$rule);
+            $role = $parse[0];
+            $resource = $parse[1];
+            $action = isset($parse[2])? $parse[2] : NULL;
+
+            AACL::grant($role,$resource,$action);
+         }
+         Notices::add('success','Access rules updated');
+      }
       $this->template->content = View::factory('user/control', array(
                                        'resources'=>AACL::list_resources(),
                                        'roles'=> Jelly::select('role')->execute(),

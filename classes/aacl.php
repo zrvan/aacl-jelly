@@ -23,7 +23,7 @@ class AACL
 	/**
 	 * Grant access to $role for resource
 	 * 
-	 * @param	mixed	string role name or Model_Role object [optional]
+	 * @param	string/Model_Role	string role name or Model_Role object [optional]
 	 * @param	string	resource identifier [optional]
 	 * @param	string	action [optional]
 	 * @param	string	condition [optional]
@@ -49,7 +49,6 @@ class AACL
          {
             $role = Jelly::select('role')->where('name', '=', $role)->limit(1)->execute();
          }
-
          // Check role exists
          if ( ! $role->loaded())
          {
@@ -59,7 +58,7 @@ class AACL
 
          // Create rule
          Jelly::factory('aacl_rule', array(
-            'role' => $role->id,
+            'role' => $role,
             'resource' => $resource,
             'action' => $action,
             'condition' => $condition,
@@ -69,8 +68,9 @@ class AACL
 	
 	/**
 	 * Revoke access to $role for resource
+    * CHANGED: now accepts NULL role
 	 * 
-	 * @param	mixed	string role name or Model_Role object [optional]
+	 * @param	string/Model_Role role name or Model_Role object [optional]
 	 * @param	string	resource identifier [optional]
 	 * @param	string	action [optional]
 	 * @param	string	condition [optional]
@@ -83,25 +83,6 @@ class AACL
          $model = Jelly::factory('aacl_rule', array(
             'role' => NULL,
          ));
-
-         if ($resource !== NULL )
-         {
-            // Add normal reources, resource NULL will delete all rules
-            $model->resource = $resource;
-         }
-
-         if ($resource !== NULL AND ! is_null($action))
-         {
-            $model->action = $action;
-         }
-
-         if ($resource !== NULL AND ! is_null($condition))
-         {
-            $model->condition = $condition;
-         }
-
-         // Delete rule
-         $model->delete();
       }
       else
       {
@@ -121,30 +102,31 @@ class AACL
          $model = Jelly::factory('aacl_rule', array(
             'role' => $role->id,
          ));
-
-         if ($resource !== NULL)
-         {
-            // Add normal reources, resource '*' will delete all rules for this role
-            $model->resource = $resource;
-         }
-
-         if ($resource !== NULL AND ! is_null($action))
-         {
-            $model->action = $action;
-         }
-
-         if ($resource !== NULL AND ! is_null($condition))
-         {
-            $model->condition = $condition;
-         }
-
-         // Delete rule
-         $model->delete();
       }
+
+      if ( ! is_null($resource) )
+      {
+         // Add normal resources, resource NULL will delete all rules
+         $model->resource = $resource;
+      }
+
+      if ( ! is_null($resource) && ! is_null($action))
+      {
+         $model->action = $action;
+      }
+
+      if ( ! is_null($resource) && ! is_null($condition))
+      {
+         $model->condition = $condition;
+      }
+
+      // Delete rule
+      $model->delete();
 	}
 
    /**
 	 * Checks user has permission to access resource
+    * CHANGED: now works with unauthorized users
 	 *
 	 * @param	AACL_Resource	AACL_Resource object being requested
 	 * @param	string			action identifier [optional]
@@ -153,81 +135,69 @@ class AACL
 	 */
 	public static function check(AACL_Resource $resource, $action = NULL)
 	{
-		if ($user = Auth::instance()->get_user())
+		$user = Auth::instance()->get_user();
+
+      // User is logged in, check rules
+		$rules = self::_get_rules($user);
+
+		foreach ($rules as $rule)
 		{
-			// User is logged in, check rules
-			$rules = self::_get_rules($user);
-
-			foreach ($rules as $rule)
+			if ($rule->allows_access_to($resource, $action))
 			{
-				if ($rule->allows_access_to($resource, $action))
-				{
-					// Access granted, just return
-					return;
-				}
+				// Access granted, just return
+				return true;
 			}
-
-			// No access rule matched
-			throw new AACL_Exception_403;
 		}
+
+      // No access rule matched
+      if( $user )
+   		throw new AACL_Exception_403;
 		else
-		{
-         // User isn't logged in, try to apply some global rules
-         $rules = self::_get_rules($user);
-
-			foreach ($rules as $rule)
-			{
-				if ($rule->allows_access_to($resource, $action))
-				{
-					// Access granted, just return
-					return;
-				}
-			}
-
-			// User is not logged in and no global rules matched
 			throw new AACL_Exception_401;
-		}
 	}
 	
 	/**
 	 * Get all rules that apply to user
+    * CHANGED
 	 * 
-	 * @param 	Model_User 	$user
+	 * @param 	Model_User/Model_Role/bool 	User, role or everyone
 	 * @param 	bool		[optional] Force reload from DB default FALSE
 	 * @return 	array
 	 */
 	protected static function _get_rules( $user = false, $force_load = FALSE)
 	{
-      if( $user instanceof Model_User && !is_null($user->id()))
+      if ( ! isset(self::$_rules) || $force_load)
       {
-         if ( ! isset(self::$_rules) OR $force_load)
+         $select_query = Jelly::select('aacl_rule');
+         // Get rules for user
+         if( $user instanceof Model_User && !is_null($user->id))
          {
-            self::$_rules = Jelly::select('aacl_rule')
-                        ->where('role','IN', $user->roles->as_array(NULL, 'id'))
-                        ->order_by('LENGTH("resource")', 'ASC')
-                        ->execute();
+            self::$_rules = $select_query->where('role','IN', $user->roles->as_array(NULL, 'id'));
+         }
+         // Get rules for role
+         else if( $user instanceof Model_Role && !is_null($user->id))
+         {
+            self::$_rules = $select_query->where('role','=', $user->id);
+         }
+         // User is guest
+         else
+         {
+            self::$_rules = $select_query->where('role','=', null);                  
          }
 
-         return self::$_rules;
+         self::$_rules = $select_query
+                           ->order_by('LENGTH("resource")', 'ASC')
+                           ->execute();
       }
-      else
-      {
-         if ( ! isset(self::$_rules) OR $force_load)
-         {
-            self::$_rules = Jelly::select('aacl_rule')
-                        ->where('role','=', null)
-                        ->order_by('LENGTH("resource")', 'ASC')
-                        ->execute();
-         }
 
-         return self::$_rules;
-      }
+      return self::$_rules;
 	}
 	
 	protected static $_resources;
 	
 	/**
-	 * Returns a list of all valid resource objects based on the filesstem adn reflection
+	 * Returns a list of all valid resource objects based on the filesstem adn
+    * FIXED
 	 * 
 	 * @param	mixed	string resource_id [optional] if provided, the info for that specific resource ID is returned, 
 	 * 					if TRUE a flat array of just the ids is returned
@@ -239,7 +209,6 @@ class AACL
 		{
 			// Find all classes in the application and modules
 			$classes = self::_list_classes();
-
       
 			// Loop throuch classes and see if they implement AACL_Resource
 			foreach ($classes as $i => $class_name)
@@ -248,14 +217,8 @@ class AACL
 
 				if ($class->implementsInterface('AACL_Resource'))
 				{
-					// Ignore interfaces
-					if ($class->isInterface())
-					{
-						continue;
-					}
-					
-					// Ignore abstract classes
-					if ($class->isAbstract())
+					// Ignore interfaces and abstract classes
+					if ($class->isInterface() || $class->isAbstract())
 					{
 						continue;
 					}
@@ -286,7 +249,10 @@ class AACL
 		
 		return self::$_resources;
 	}
-	
+
+   /*
+    * FIXED
+    */
 	protected static function _list_classes($files = NULL)
 	{
 		if (is_null($files))
@@ -340,55 +306,24 @@ class AACL
 	}
    
    protected static $_access_map;
-
-   public static function granted($check_role = NULL, $check_resource = NULL, $check_action = NULL)
+   // TODO: support conditions
+   public static function granted($role = NULL, $resource = NULL, $action = NULL, $condition = NULL)
    {
-      if( !isset(self::$_access_map))
-      {
-         $map = array();
-         $roles = Jelly::select('role')->execute();
-         $resources = self::list_resources();
-         $rules = Jelly::select('aacl_rule')
-                                 ->execute();
+      $role = Jelly::select('role')->where('name','=',$role)->limit(1)->execute();
+      $rules = self::_get_rules($role);
+      //Notices::add('info','<pre>'.print_r($rules,true).'</pre>');
 
-         
-         // Create map
-         foreach( $roles as $role )
+      foreach( $rules as $rule )
+      {
+         if( $rule->allows_access_to($resource,$action)
+                 && $rule->role == $role )
          {
-            $map[$role->name] = array();
-            foreach( $resources as $resource => $sub)
-            {
-               $map[$role->name][$resource] = array();
-               foreach( $sub['actions'] as $action )
-               {
-                  $map[$role->name][$resource][$action]=false;
-                  
-                  foreach($rules as $rule)
-                  {
-                     if( $rule->allows_access_to($resource,$action)
-                      && ($rule->role->id == $role->id || is_null($rule->role->id) ) )
-                     {
-                        $map[$role->name][$resource][$action] = true;
-                     }
-                  }
-               }
-            }
+            //Notices::add('info',$rule->id.': '.$rule->role->name.'/'.$rule->resource.'/'.$rule->action.' » '.$role->name.'/'.$resource.'/'.$action);
+            return true;
          }
-         
-         self::$_access_map = $map;
       }
 
-      if( is_null($check_action) )
-      {
-         $ret = true;
-         foreach( self::$_access_map[$check_role][$check_resource] as $each )
-            if(!$each)
-               $ret = false;
-
-         return $ret;
-      }
-      else
-         return self::$_access_map[$check_role][$check_resource][$check_action];
+      return false;
    }
 	
 	/**
