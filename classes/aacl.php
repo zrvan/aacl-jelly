@@ -23,7 +23,7 @@ class AACL
 	/**
 	 * Grant access to $role for resource
 	 * 
-	 * @param	string/Model_Role	string role name or Model_Role object [optional]
+	 * @param	string|Model_Role	string role name or Model_Role object [optional]
 	 * @param	string	resource identifier [optional]
 	 * @param	string	action [optional]
 	 * @param	string	condition [optional]
@@ -70,7 +70,7 @@ class AACL
 	 * Revoke access to $role for resource
     * CHANGED: now accepts NULL role
 	 * 
-	 * @param	string/Model_Role role name or Model_Role object [optional]
+	 * @param	string|Model_Role role name or Model_Role object [optional]
 	 * @param	string	resource identifier [optional]
 	 * @param	string	action [optional]
 	 * @param	string	condition [optional]
@@ -160,7 +160,7 @@ class AACL
 	 * Get all rules that apply to user
     * CHANGED
 	 * 
-	 * @param 	Model_User/Model_Role/bool 	User, role or everyone
+	 * @param 	Model_User|Model_Role|bool 	User, role or everyone
 	 * @param 	bool		[optional] Force reload from DB default FALSE
 	 * @return 	array
 	 */
@@ -199,7 +199,7 @@ class AACL
 	 * Returns a list of all valid resource objects based on the filesstem adn
     * FIXED
 	 * 
-	 * @param	mixed	string resource_id [optional] if provided, the info for that specific resource ID is returned, 
+	 * @param	string|bool	string resource_id [optional] if provided, the info for that specific resource ID is returned,
 	 * 					if TRUE a flat array of just the ids is returned
 	 * @return	array 
 	 */
@@ -250,7 +250,7 @@ class AACL
 		return self::$_resources;
 	}
 
-   /*
+   /**
     * FIXED
     */
 	protected static function _list_classes($files = NULL)
@@ -260,8 +260,39 @@ class AACL
 			// Remove core module paths form search
 			$loaded_modules = Kohana::modules();
 			
-			$exclude_modules = array('database', 'orm', 'jelly', 'auth', 'jelly-auth',
-				'userguide', 'image', 'codebench', 'unittest', 'pagination');
+			$exclude_modules = array(
+               'database',
+               'orm',
+               'jelly',
+               'auth',
+               'jelly-auth',
+               'userguide',
+               'image',
+               'codebench',
+               'unittest',
+               'pagination',
+               'migration'
+            );
+
+      /*   'firephp' => MODPATH.'firephp',
+        'dbforge' => MODPATH.'dbforge',
+        'database'   => MODPATH.'database',   // Database access
+        'migration' => MODPATH.'migration',
+        'formo'        => MODPATH.'formo',
+        'formo-jelly'        => MODPATH.'formo-jelly',
+        'jelly'        => MODPATH.'jelly',        // Object Relationship Mapping
+        'jelly-auth'        => MODPATH.'jelly-auth',
+        'auth'       => MODPATH.'auth',       // Basic authentication
+        'aacl'       => MODPATH.'aacl',       // Roles, rules, resources
+        // 'oauth'      => MODPATH.'oauth',      // OAuth authentication
+        // 'pagination' => MODPATH.'pagination', // Paging of results
+        'archive' => MODPATH.'archive',
+        'unittest'   => MODPATH.'unittest',   // Unit testing
+        'userguide'  => MODPATH.'userguide',  // User guide and API documentation
+        //'debug-toolbar'        => MODPATH.'debug-toolbar',
+        'notices'        => MODPATH.'notices',
+        //'editor' => MODPATH.'editor',
+        'article' => MODPATH.'article',*/
 				
 			$paths = Kohana::include_paths();
          
@@ -304,21 +335,28 @@ class AACL
 		
 		return $classes;
 	}
-   
-   protected static $_access_map;
-   // TODO: support conditions
+
+   /**
+    * Method, that allows to check any rule from database in any place of project.
+    * Works with string presentations of resources, actions, roles and conditions
+    * @todo: support conditions
+    *
+    * @param string $role
+    * @param string $resource
+    * @param string $action
+    * @param string $condition
+    * @return bool
+    */
    public static function granted($role = NULL, $resource = NULL, $action = NULL, $condition = NULL)
    {
       $role = Jelly::select('role')->where('name','=',$role)->limit(1)->execute();
       $rules = self::_get_rules($role);
-      //Notices::add('info','<pre>'.print_r($rules,true).'</pre>');
-
+      
       foreach( $rules as $rule )
       {
          if( $rule->allows_access_to($resource,$action)
                  && $rule->role == $role )
          {
-            //Notices::add('info',$rule->id.': '.$rule->role->name.'/'.$rule->resource.'/'.$rule->action.' » '.$role->name.'/'.$resource.'/'.$action);
             return true;
          }
       }

@@ -7,6 +7,7 @@
  * @package		AACL
  * @uses		Auth
  * @uses		Jelly
+ * @uses    Notices
  * @author		Andrew Magalich
  * @copyright	(c) Andrew Magalich 2010
  * @license		MIT
@@ -77,7 +78,7 @@ class Controller_User extends Controller_Layout {
          foreach($_POST['grant'] as $rule => $value)
          {
             $parse = explode('/',$rule);
-            $role = $parse[0];
+            $role = ($parse[0]!="")? $parse[0] : NULL;
             $resource = $parse[1];
             $action = isset($parse[2])? $parse[2] : NULL;
 
@@ -93,9 +94,66 @@ class Controller_User extends Controller_Layout {
    /*
     * Managing users
     */
-   public function action_users()
+   public function action_create()
+   {
+      $user = Jelly::factory($this->model);
+      
+      $user->form->remove('id');
+      if( $user->form->load()->validate() )
+      {
+         $user->roles = $_POST['roles'];
+         $user->save();
+         Notices::add('success', 'Created');
+         $this->request->redirect('/user/update/'.$user->id);
+      }
+
+      $this->template->content = $user->form->add('submit','submit');
+   }
+   public function action_read($id = NULL)
    {
 
+   }
+   public function action_update($id = NULL)
+   {
+      if( !is_null($id) )
+      {
+         $user = Jelly::select($this->model,$id);
+
+         $user->form->load()
+                     ->remove('password')
+                     ->remove('password_confirm');
+         if( $user->form->validate() )
+         {
+            // @todo: Here should be normal many-to-many
+            $user->roles = $_POST['roles'];
+            $user->save($id);
+            Notices::add('success', 'Updated');
+            $this->request->redirect('/user/update/'.$id);
+         }
+         
+         $this->template->content = $user->form->add('submit','submit')->render('html');
+      }
+   }
+   public function action_delete($id = NULL)
+   {
+      if( !is_null($id) )
+      {
+
+      }
+   }
+   public function action_register()
+   {
+      $user = Jelly::factory($this->model);
+
+      $user->form->remove(array('id','roles'));
+      if( $user->form->load()->validate() )
+      {
+         $user->save();
+         Notices::add('success', 'Created');
+         $this->request->redirect('/user/update/'.$user->id);
+      }
+
+      $this->template->content = $user->form->add('submit','submit');
    }
 
 	public function after()

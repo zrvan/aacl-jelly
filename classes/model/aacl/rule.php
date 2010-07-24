@@ -22,28 +22,28 @@ class Model_AACL_Rule extends Jelly_AACL
               )),
               'role' => new Field_BelongsTo(array(
                  'label' => 'Role',
+                 'null'=>true,
               )),
               'resource' => new Field_String(array(
                  'label' => 'Controlled resource',
+                 'null'=>true,
                  'rules' => array(
-                     'max_length' 	=> array(':value',45),
-                 )
+                     'max_length' 	=> array(45),
+                 ),
               )),
               'action' => new Field_String(array(
                  'label' => 'Controlled action',
+                 'null'=>true,
                  'rules' => array(
-                     'max_length' 	=> array(':value',25),
-                     //'null'			=> TRUE,
+                     'max_length' 	=> array(25),
                  ),
-                 'default' => NULL,
               )),
               'condition' => new Field_String(array(
                  'label' => 'Access condition',
+                 'null'=>true,
                  'rules' => array(
-                     'max_length' 	=> array(':value',25),
-                     //'null'			=> TRUE,
+                     'max_length' 	=> array(25),
                  ),
-                 'default' => NULL,
               )),
             ));
 	}
@@ -52,7 +52,7 @@ class Model_AACL_Rule extends Jelly_AACL
 	 * Check if rule matches current request
     * CHANGED: allows_access_to accepts now resource_id
 	 * 
-	 * @param string/AACL_Resource	AACL_Resource object or it's id that user requested access to
+	 * @param string|AACL_Resource	AACL_Resource object or it's id that user requested access to
 	 * @param string        action requested [optional]
 	 * @return 
 	 */
@@ -148,11 +148,14 @@ class Model_AACL_Rule extends Jelly_AACL
       $meta = $this->meta();
       $fields = $meta->fields();
 		// Delete all more specifc rules for this role
-		$delete = Jelly::delete($this)
-			->where( $fields['role']->column, '=', $this->_changed['role'] );
+      if( isset($this->_changed['role']))
+         $delete = Jelly::delete($this)
+            ->where( $fields['role']->column, '=', $this->_changed['role'] );
+      else
+         $delete = Jelly::delete($this)
+            ->where( $fields['role']->column, '=', NULL );
 		
 		// If resource is NULL we don't need any more rules - we just delete every rule for this role
-		
 		if ( ! is_null($this->resource) )
 		{
 			// Need to restrict to roles with equal or more specific resource id
