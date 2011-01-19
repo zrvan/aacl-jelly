@@ -174,7 +174,7 @@ class AACL
 			self::check ($resource, $action);
 			return true;
 		}
-		catch (AACL_Exception)
+		catch (AACL_Exception $e)
 		{
 			return false;
 		}
