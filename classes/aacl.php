@@ -31,7 +31,7 @@ class AACL
 	 */
 	public static function grant($role = NULL, $resource = NULL, $action = NULL, $condition = NULL)
 	{
-      // if $role is null — we grant this to everyone
+/*      // if $role is null — we grant this to everyone
       if( is_null($role) )
       {
          // Create rule
@@ -43,18 +43,22 @@ class AACL
          ))->create();
       }
       else
-      {
-         // Normalise $role
-         if ( ! $role instanceof Model_Role)
-         {
-            $role = Jelly::select('role')->where('name', '=', $role)->limit(1)->execute();
-         }
-         // Check role exists
-         if ( ! $role->loaded())
-         {
-            throw new AACL_Exception('Unknown role :role passed to AACL::grant()',
-               array(':role' => $role->name));
-         }
+      { */
+
+	 if ( ! is_null ($role))
+	 {
+		 if ( ! $role instanceof Model_Role)
+		 {
+		 // Normalise $role
+		    $role = Jelly::select('role')->where('name', '=', $role)->limit(1)->execute();
+		 }
+		 if ( ! $role->loaded())
+		 {
+		 // Check role exists
+		    throw new AACL_Exception('Unknown role :role passed to AACL::grant()',
+		       array(':role' => $role->name));
+		 }
+	}
 
          // Create rule
          Jelly::factory('aacl_rule', array(
@@ -63,7 +67,7 @@ class AACL
             'action' => $action,
             'condition' => $condition,
          ))->create();
-      }
+//      }
 	}
 	
 	/**
@@ -154,6 +158,26 @@ class AACL
    		throw new AACL_Exception_403;
 		else
 			throw new AACL_Exception_401;
+	}
+
+	/**
+	 * Checks if a user has permission to access resource without throwing exception
+	 *
+	 * @param	AACL_Resource	AACL_Resource object being requested
+	 * @param	string		action identifier [optional]
+	 * @return	boolean
+	 */
+	public static function can (AACL_Resource $resource, $action = NULL)
+	{
+		try
+		{
+			self::check ($resource, $action);
+			return true;
+		}
+		catch (AACL_Exception)
+		{
+			return false;
+		}
 	}
 	
 	/**
